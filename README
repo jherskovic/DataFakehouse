@@ -1,0 +1,3 @@
+Requires PostgreSQL 8.3 or greater, a reasonably modern python 2.x, and psycopg2.
+
+See create_db.sh for parameters.
