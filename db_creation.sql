@@ -117,7 +117,29 @@ INSERT INTO lab_tests (name, unit, normal_min, normal_max) VALUES
     ('Fuel capacity',               'gal',       5,    20),
     ('Eyeball temperature',         'C',        32,    35),
     ('Diabatic pressure',           'mmHg',     40,    90),
-    ('Systematic pressure',         'mmHg',    100,   140);
+    ('Systematic pressure',         'mmHg',    100,   140),
+    ('IQ',                          '%',        80,   120),
+    ('Other lab test 1',            'mg/ml',    10,    20),
+    ('Other lab test 2',            'mg/ml',    20,    40),
+    ('Other lab test 3',            'mg/ml',    30,    35),
+    ('Other lab test 4',            'mg/ml',    40,    90),
+    ('Other lab test 5',            'mg/ml',    50,    55),
+    ('Other lab test 6',            'mg/ml',    60,   100),
+    ('Other lab test 7',            'mg/ml',    70,   200),
+    ('Other lab test 8',            'mg/ml',    80,    90),
+    ('Other lab test 9',            'mg/ml',    90,    95),
+    ('Other lab test 10',           'mg/ml',     0,     5),
+    ('Other lab test 11',           'mg/ml',     1,     7),
+    ('Other lab test 12',           'mg/ml',     2,    20),
+    ('Other lab test 13',           'mg/ml',     3,    20),
+    ('Other lab test 14',           'mg/ml',     4,    20),
+    ('Other lab test 15',           'mg/ml',     5,    20),
+    ('Other lab test 16',           'mg/ml',     6,    77),
+    ('Other lab test 17',           'mg/ml',     7,    32),
+    ('Other lab test 18',           'mg/ml',     8,    20),
+    ('Other lab test 19',           'mg/ml',     9,    20),
+    ('Other lab test 20',           'mg/ml',    10,    20)
+    ;
     
 --Fake races offend no one. Hopefully.
 INSERT INTO races (name) VALUES 
