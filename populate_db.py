@@ -33,8 +33,7 @@ OLDEST_VISIT=10*365 # In days ago
 # Probabilities
 PROVIDER_NOT_AVAILABLE=0.07
 MAX_PROBABILTY_PROVIDER_MESSES_UP_PER_VISIT=0.01
-PROBABILITY_CONDITION_MISSED=0.3
-PROBABILITY_CONDITION_ADDED=0.3
+PROBABILITY_CONDITION_MISSED=0.3 # Otherwise, the provider will add a wrong condition
 
 #Probability another lab is abnormal
 PROBABILITY_SPURIOUS_ABNORMAL_LAB=0.01
@@ -256,7 +255,7 @@ def generate_patient_history(cursor, patient_number, diseases, providers, lab_te
             if random.random() < PROBABILITY_CONDITION_MISSED:
                 if len(this_visits_conditions)>0:
                     this_visits_conditions.remove(random.choice(this_visits_conditions))
-            if random.random() < PROBABILITY_CONDITION_ADDED:
+            else:
                 # Add a new condition to this visit
                 this_visits_conditions.append(random.choice([x for x in diseases if x not in this_visits_conditions]))
         visit_id=save_visit(cursor, patient_number, this_visits_provider, visit_date)
