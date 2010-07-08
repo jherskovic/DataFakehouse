@@ -206,10 +206,10 @@ CREATE TEMP VIEW visits_without_condition_not_billed_for_it AS
 
 CREATE TEMP VIEW billing_contingency_view AS 
     SELECT c.code AS icd_code, 
-           COALESCE(tp.visit_count, 0) AS true_positives,
-           COALESCE(fn.visit_count, 0) AS false_negatives,
-           COALESCE(fp.visit_count, 0) AS false_positives,
-           COALESCE(tn.visit_count, 0) AS true_negatives
+           tp.visit_count AS true_positives,
+           fn.visit_count AS false_negatives,
+           fp.visit_count AS false_positives,
+           tn.visit_count AS true_negatives
     FROM icd_codes AS c
     LEFT OUTER JOIN visits_with_condition_billed_as_such AS tp
         ON tp.icd_code=c.code
@@ -221,7 +221,11 @@ CREATE TEMP VIEW billing_contingency_view AS
         ON tn.icd_code=c.code
     ORDER BY c.code;
     
-SELECT * 
+SELECT icd_code, 
+       COALESCE(true_positives, 0) AS true_positives, 
+       COALESCE(false_negatives, 0) AS false_negatives,
+       COALESCE(false_positives, 0) AS false_positives,
+       COALESCE(true_negatives, 0) AS true_negatives
 INTO contingency_table_billing
 FROM billing_contingency_view;
 

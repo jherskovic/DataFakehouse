@@ -1,3 +1,32 @@
-Requires PostgreSQL 8.3 or greater, a reasonably modern python 2.x, and psycopg2.
+This is a simple set of scripts that creates a simulated data warehouse. It has
+a lot of simplifying assumptions, but it’s good enough for some kinds of
+research (specially into data mining techniques) and for teaching purposes. Here
+are some of the more relevant simplifying assumptions:
 
-See create_db.sh for parameters.
+1. All diseases are chronic. 
+2. Care is episodic. In other words, this is an encounter-based setting, like an
+   outpatient clinic.
+3. Patients have a condition from the start, or they don’t. Conditions don’t 
+   appear during the course of care. 
+4. There’s a standard set of labs that is ordered every single time a patient 
+   with a condition visits. You can think of vitals as ‘labs’ if that helps. 
+5. The number of potential conditions is small. This can be increased easily, if
+   necessary.
+6. All lab values are normally distributed, both the normal and abnormal ones. 
+7. We know the ground truth about whether a patient has a condition or not 
+   (great for computing sensitivity and specificity!)
+8. Conditions may (or may not) be billed for. Billing is based on the 
+   physicians' diagnoses during a visit, but it is also based on whether the
+   condition in question is being treated at the institution or not. In other
+   words, the physician may know that you have Bagelitis, but if it's being
+   treated elsewhere we won't bill for it. This approximates the US billing 
+   model; YMMV.
+   
+Requires PostgreSQL 8.3 or greater, a reasonably modern python 2.x, and
+psycopg2.
+
+See create_db.sh for parameters, populate_db.py to tweak the probabilities of
+events, and db_creation.sql to tweak the prevalence of diseases and the
+likelihood that they are billed for at your fake institution.
+
+
