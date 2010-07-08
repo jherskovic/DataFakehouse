@@ -17,3 +17,5 @@ $PGBIN/psql $DBNAME < db_creation.sql
 $PYTHON_EXE populate_db.py $DBNAME $NUMPATIENTS
 
 $PGBIN/psql $DBNAME < index_creation.sql
+
+$PGBIN/psql $DBNAME < contingency.sql
