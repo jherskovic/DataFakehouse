@@ -18,6 +18,9 @@ AGE_MAX=99
 AGE_NORMAL=25
 AGE_SIGMA=20
 
+#Commit the transaction every so many patients
+COMMIT_EVERY=5000
+
 #VISITS_PER_PATIENT_NORMAL=3
 #VISITS_PER_PATIENT_SIGMA=5
 VISITS_PER_PATIENT_PARETO_ALPHA=1
@@ -32,7 +35,7 @@ OLDEST_VISIT=10*365 # In days ago
 
 # Probabilities
 PROVIDER_NOT_AVAILABLE=0.07
-MAX_PROBABILTY_PROVIDER_MESSES_UP_PER_VISIT=0.01
+MAX_PROBABILTY_PROVIDER_MESSES_UP_PER_VISIT=0.02
 PROBABILITY_CONDITION_MISSED=0.3 # Otherwise, the provider will add a wrong condition
 
 #Probability another lab is abnormal
@@ -95,10 +98,11 @@ class lab_test(object):
         return self._name==other._name
                 
 class disease(object):
-    def __init__(self, code, name, prevalence):
+    def __init__(self, code, name, prevalence, probability_treated_here):
         self._name=name
         self._code=code
         self._prevalence=float(prevalence)
+        self._p_treated_here=float(probability_treated_here)
     def name():
         doc = "The name property."
         def fget(self):
@@ -117,6 +121,12 @@ class disease(object):
             return self._prevalence
         return locals()
     prevalence = property(**prevalence())
+    def probability_treated_here():
+        doc = "The probability_treated_here property."
+        def fget(self):
+            return self._p_treated_here
+        return locals()
+    probability_treated_here = property(**probability_treated_here())
     def __repr__(self):
         return "<Condition %s: %s>" % (self.code, self.name)
     def __eq__(self, other):
@@ -142,7 +152,7 @@ def get_valid_lab_tests(connection):
     
 def get_diseases(connection):
     cur=connection.cursor()
-    cur.execute("SELECT code, name, prevalence FROM icd_codes")
+    cur.execute("SELECT * FROM icd_codes")
     return [disease(*x) for x in cur.fetchall()]
     
 def create_patient(cursor, races):
@@ -157,16 +167,25 @@ def chance_providers_mess_up(providers):
     a diagnostic mistake."""
     prob={}
     for provider in providers:
-        prob[provider]=random.random() * MAX_PROBABILTY_PROVIDER_MESSES_UP_PER_VISIT
+        prob[provider]=random.random() * \
+            MAX_PROBABILTY_PROVIDER_MESSES_UP_PER_VISIT
     return prob
 
 def generate_order_sets(conditions, labs):
     labs_per_condition={}
     for c in conditions:
-        num_labs=normal_int_with_min_bounds(LABS_PER_CONDITION_NORMAL, LABS_PER_CONDITION_SIGMA)
+        num_labs=normal_int_with_min_bounds(LABS_PER_CONDITION_NORMAL,
+                                            LABS_PER_CONDITION_SIGMA)
         labs_per_condition[c]=set(random.sample(labs, num_labs))
     return labs_per_condition
 
+def save_order_sets(cursor, order_sets):
+    for condition, labs in order_sets.iteritems():
+        for lab in labs:
+            cursor.execute("INSERT INTO order_sets (icd_code, lab_test) "
+                           "VALUES (%s, %s)", (condition.code, lab.name))
+    return
+    
 def decide_which_lab_is_abnormal_for_each_condition(order_sets):
     abnormal_labs={}
     for o in order_sets:
@@ -181,9 +200,10 @@ def visits_one_patient():
 def labs_one_visit(patient_conditions, order_sets, lab_tests):
     labs=set([])
     for c in patient_conditions:
-        labs|=order_sets[c]
+        labs|=order_sets[c[0]]
     # add an extra lab here or there
-    extra_labs=normal_int_with_min_bounds(EXTRA_LABS_PER_VISIT_NORMAL, EXTRA_LABS_PER_VISIT_SIGMA)
+    extra_labs=normal_int_with_min_bounds(EXTRA_LABS_PER_VISIT_NORMAL,
+                                          EXTRA_LABS_PER_VISIT_SIGMA)
     try:
         labs|=set(random.sample(lab_tests, extra_labs))
     except ValueError:
@@ -196,7 +216,7 @@ def assign_lab_values(labs_this_patient, conditions, abnormal_labs):
     to_be_abnormal=set([])
     for c in conditions:
         try:
-            to_be_abnormal.add(abnormal_labs[c])
+            to_be_abnormal.add(abnormal_labs[c[0]])
         except KeyError:
             # This condition has no abnormal labs
             pass
@@ -216,7 +236,8 @@ def save_visit(cursor, patient_number, provider, date):
 
 def save_problems(cursor, visitid, conditions):
     for c in conditions:
-        cursor.execute("INSERT INTO problems (visit, icd_code) VALUES (%s, %s)", (visitid, c.code))
+        cursor.execute("INSERT INTO problems (visit, icd_code) VALUES (%s, %s)",
+                       (visitid, c[0].code))
     return
 
 def save_labs(cursor, visitid, labs):
@@ -224,16 +245,26 @@ def save_labs(cursor, visitid, labs):
         cursor.execute("INSERT INTO labs (visit, lab_test, value) VALUES (%s, %s, %s)", (visitid, l[0].name, l[1]))
     return
     
+def save_billing(cursor, visitid, conditions):
+    for c in conditions:
+        if c[1]:
+            cursor.execute("INSERT INTO billing (visit, icd_code) "
+                           "VALUES (%s, %s)", (visitid, c[0].code))
+    return
+    
 def save_patient_ground_truth(cursor, patientid, patient_conditions):
     for c in patient_conditions:
-        cursor.execute("INSERT INTO patients_ground_truth (patient, icd_code) VALUES (%s, %s)", (patientid, c.code))
+        cursor.execute("INSERT INTO patients_ground_truth"
+                       " (patient, icd_code, treated_here) VALUES (%s, %s, %s)", 
+                       (patientid, c[0].code, c[1]))
     return
     
 def generate_patient_conditions(diseases):
     conditions=[]
     for d in diseases:
         if random.random() < d.prevalence:
-            conditions.append(d)
+            treated_here=(random.random() < d.probability_treated_here)
+            conditions.append((d, treated_here))
     return conditions
     
 def generate_patient_history(cursor, patient_number, diseases, providers, lab_tests, order_sets, abnormal_labs):
@@ -254,17 +285,37 @@ def generate_patient_history(cursor, patient_number, diseases, providers, lab_te
             # Provider screwed up.
             if random.random() < PROBABILITY_CONDITION_MISSED:
                 if len(this_visits_conditions)>0:
-                    this_visits_conditions.remove(random.choice(this_visits_conditions))
+                    this_visits_conditions.remove(
+                            random.choice(this_visits_conditions))
             else:
                 # Add a new condition to this visit
-                this_visits_conditions.append(random.choice([x for x in diseases if x not in this_visits_conditions]))
-        visit_id=save_visit(cursor, patient_number, this_visits_provider, visit_date)
+                this_visits_conditions.append(
+                        random.choice([(x, random.random() <    
+                                           x.probability_treated_here) 
+                                       for x in diseases if x not in
+                                       [y[0] for y in this_visits_conditions]]))
+        visit_id=save_visit(cursor, patient_number, 
+                            this_visits_provider, visit_date)
         visit_date-=int(random.random() * max_visit_spacing)
         save_problems(cursor, visit_id, this_visits_conditions)
-        this_visits_labs=labs_one_visit(this_visits_conditions, order_sets, lab_tests)
-        lab_results=assign_lab_values(this_visits_labs, this_visits_conditions, abnormal_labs)
+        save_billing(cursor, visit_id, this_visits_conditions)
+        this_visits_labs=labs_one_visit(this_visits_conditions, 
+                                        order_sets, lab_tests)
+        lab_results=assign_lab_values(this_visits_labs, 
+                                      this_visits_conditions, abnormal_labs)
         save_labs(cursor, visit_id, lab_results)
     return
+  
+def draw_spinner(SPINNER="/-\\|", steps=100, pos=[None]):
+    if pos[0] is not None:
+        sys.stdout.write(chr(8))
+    else:
+        pos[0]=0
+    if pos[0] % steps==0:
+        sys.stdout.write('-')
+    sys.stdout.write(SPINNER[pos[0] % len(SPINNER)])
+    sys.stdout.flush()
+    pos[0]+=1
     
 def main():
     DBNAME=sys.argv[1]
@@ -287,12 +338,16 @@ def main():
     print "Abnormal labs=", abnormal_labs
     print "Inserting %d patients" % NUM_PATIENTS
     cur=conn.cursor()
+    save_order_sets(cur, order_sets)
+    print "Working: ",
     for x in xrange(NUM_PATIENTS): # REPLACE WITH NUM_PATIENTS
         this_patient=create_patient(cur, races)
         generate_patient_history(cur, this_patient, diseases, failure_rates, lab_tests, order_sets, abnormal_labs)
-        if x % 1000==0:
-            # Commmit every 1000
+        draw_spinner()
+        if x % COMMIT_EVERY==0:
+            # Commmit every 5000
             conn.commit()
+    print "\nDone."
     conn.commit()
     
 if __name__ == '__main__':

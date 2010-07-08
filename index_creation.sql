@@ -7,4 +7,6 @@ CREATE INDEX idx_problems_conditions ON problems (icd_code);
 CREATE INDEX idx_labs_visits ON labs (visit);
 CREATE INDEX idx_labs_lab ON labs (lab_test);
 
+CREATE INDEX idx_billing_visits ON billing (visit);
+
 VACUUM ANALYZE;

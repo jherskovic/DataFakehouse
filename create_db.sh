@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Default PostgreSQL install when compiled from source on a UNIX-like system
 PGBIN=/usr/local/pgsql/bin
 
 DBNAME=uncertain_emr

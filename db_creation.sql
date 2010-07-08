@@ -26,19 +26,33 @@ CREATE TABLE visits (
     visit_date TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
 
+--Some institutions specialize and don't treat certain conditions. When they see
+--one of those conditions, they won't bill for it.
 CREATE TABLE icd_codes (
     code VARCHAR(10) NOT NULL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    prevalence NUMERIC NOT NULL
+    prevalence NUMERIC NOT NULL,
+    probability_treated_here NUMERIC NOT NULL DEFAULT 1.0
 );
 
+--Treated_here codifies whether the patient is being treated here for this 
+--condition or not.
 CREATE TABLE patients_ground_truth (
     patient INTEGER NOT NULL REFERENCES patients,
-    icd_code VARCHAR(10) NOT NULL
+    icd_code VARCHAR(10) NOT NULL,
+    treated_here BOOLEAN NOT NULL
 );
 
+--This codifies the doctor's observations
 CREATE TABLE problems (
     problemid SERIAL NOT NULL PRIMARY KEY,
+    visit INTEGER NOT NULL REFERENCES visits,
+    icd_code VARCHAR(10) NOT NULL REFERENCES icd_codes
+);
+
+--This codifies the actual billing record
+CREATE TABLE billing (
+    billingid SERIAL NOT NULL PRIMARY KEY,
     visit INTEGER NOT NULL REFERENCES visits,
     icd_code VARCHAR(10) NOT NULL REFERENCES icd_codes
 );
@@ -66,6 +80,12 @@ CREATE TABLE labs (
     value NUMERIC NOT NULL 
 );
 
+CREATE TABLE order_sets (
+    icd_code VARCHAR(10) NOT NULL REFERENCES icd_codes,
+    lab_test INTEGER NOT NULL REFERENCES lab_tests,
+    PRIMARY KEY (icd_code, lab_test)
+);
+
 --Populate some of the master tables
 --Providers shamelessly cribbed from TV series
 INSERT INTO providers (name, title) VALUES
@@ -82,15 +102,15 @@ INSERT INTO providers (name, title) VALUES
 
 --Bagelitis doesn't sound like such a horrible disease
 --And I definitely suffer from hypocaffeinemia
-INSERT INTO icd_codes (code, name, prevalence) VALUES 
-    ('012', 'Hairitis',             0.3),
-    ('345', 'Sarcasmosis',          0.01),
-    ('678', 'Bagelitis',            0.2),
-    ('9AB', 'Annoyingism',          0.3),
-    ('CDE', 'Hyperpressure',        0.1),
-    ('999', 'Diabitter mellitus',   0.15),
-    ('XYZ', 'Wristache',            0.45),
-    ('987', 'Hypocaffeinemia',      0.6);
+INSERT INTO icd_codes (code, name, prevalence, probability_treated_here) VALUES 
+    ('012', 'Hairitis',             0.3,    0.9),
+    ('345', 'Sarcasmosis',          0.01,   0.1),
+    ('678', 'Bagelitis',            0.2,    0.01),
+    ('9AB', 'Annoyingism',          0.3,    0.5),
+    ('CDE', 'Hyperpressure',        0.1,    0.3),
+    ('999', 'Diabitter mellitus',   0.15,   0.95),
+    ('XYZ', 'Wristache',            0.45,   0.95),
+    ('987', 'Hypocaffeinemia',      0.6,    0.7);
 
 --Rods to the hogshead is a quintessential American measurement according to Grampa Simpson
 INSERT INTO units (unit, name) VALUES 
